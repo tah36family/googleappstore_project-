@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+  
+<style>
+  #chart-area svg {
+    margin:auto;
+    display:inherit;
+  }
+  text {
+    font: 10px sans-serif;
+  }
+  form {
+    position: absolute;
+    right: 10px;
+    top: 10px;
+  }
+  p {
+      margin-left:auto; 
+      margin-right:auto; 
+  }
+  /* needed for the 2nd chart that occurs on mouse over */
+.bar { fill: rgb(209, 20, 20); }
+</style>
+  
+</head>
+<body>
+    <div id="chart-area">
+        <form>
+            <label><input type="radio" name="dataset" value="apples" checked></label>
+            <label><input type="radio" name="dataset" value="oranges"> <!-- Oranges --> </label> 
+        </form>        
+    </div>
+    <!-- Stats information on the category -->
+    <p id="info"></p>
+
+    <!-- Second graph for the bar chart -->
+    <div id="second-chart">
+
+
+    </div>
+
+<script src="//d3js.org/d3.v5.min.js"></script>
+
+<!-- Our JS code -->
+<script>
+    const width = 1000;
+    const height = 700;
+    const margin = {top: 80, right: 70, bottom: 80, left: 80}
+    const radius = Math.min(width, height) / 2;
+    let global_data = {}; 
+    let categorgies_all; 
+    let uniqueCategories = []; 
+    let columns = []; 
+    const svg = d3.select("#chart-area")
+        .append("svg")
+            .attr("width", width)
+            .attr("height", height)
+        .append("g")
+            .attr("transform", `translate(${width / 2}, ${height / 2})`);
+
+    const color = d3.scaleOrdinal(["#66c2a5","#fc8d62","#8da0cb",
+         "#e78ac3","#a6d854","#ffd92f"]);
+
+    const pie = d3.pie()
+        .value(d => global_data[d])
+        .sort(null);
+
+    const arc = d3.arc()
+        .innerRadius(0)
+        .outerRadius(radius);
+
+    function type(d) {
+        d.apples = Number(d.apples);
+        d.oranges = Number(d.oranges);
+        return d;
+    }
+
+    function arcTween(a) {
+        const i = d3.interpolate(this._current, a);
+        this._current = i(1);
+        return (t) => arc(i(t));
+    }
+
+   
+    d3.csv("data/googleplaystore.csv" /* , type to automatically parse */).then(data => {  
+        _log(data); 
+        d3.selectAll("input")
+            .on("change", update);
+        
+            columns = data.columns; 
+        categorgies_all = data.filter(d => isNaN(d.Category) == true).map(d => d.Category); 
+        uniqueCategories =  [...new Set(categorgies_all)]; 
+        categorgies_all.forEach(x => {
+            global_data[x] = ++global_data[x] || 1; 
+        })
+
+        function update(val = this.value) {
+            // Join new data
+            const path = svg.selectAll("path")
+                // .data(pie(data[val]));
+                .data(pie(uniqueCategories));
+
+            // Update existing arcs
+            path.transition().duration(200).attrTween("d", arcTween);
+
+            // Enter new arcs
+            path.enter().append("path")
+                .attr("fill", (d, i) => color(i))
+                .attr("d", arc)
+                .attr("stroke", "white")
+                .attr("stroke-width", "6px")
+                .each(function(d) { this._current = d; })
+                .on("mouseover", function(d){
+                    let summary = `Category: ${d.data} Num of Apps with this category ${global_data[d.data]} of ${categorgies_all.length} apps. Percent ${parseFloat(global_data[d.data]/categorgies_all.length).toFixed(2) * 100} %`;
+                    d3.select("#info").text(summary); 
+                });
+                        
+        }
+
+        update("apples");
+    });
+
+    function _log(d){
+        console.log(d);
+    }
+  
+
+</script>
+</body>
